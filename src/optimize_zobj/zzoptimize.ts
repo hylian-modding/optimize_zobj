@@ -13,7 +13,7 @@ export function optimize(zobj: Buffer, DLoffsets: Set<number>, rebase: number = 
     let matrices = new Map<number, Buffer>();
     let displayLists = new Array<IDisplayListInfo>();
 
-    // first pass: gather all relevant offsets for disply lists, textures, palettes, and vertex data
+    // first pass: gather all relevant offsets for display lists, textures, palettes, and vertex data
     DLoffsets.forEach((val) => {
 
         if (val % 8 !== 0) {
@@ -95,7 +95,7 @@ export function optimize(zobj: Buffer, DLoffsets: Set<number>, rebase: number = 
                     }
                     break;
 
-                case 0xFD:
+                case 0xFD:  // handle textures
                     // Don't ask me how this works
 
                     if (seg === segment) {
@@ -105,30 +105,9 @@ export function optimize(zobj: Buffer, DLoffsets: Set<number>, rebase: number = 
                         // console.log("Texture Type: 0x" + textureType.toString(16));
 
                         let bitSize = 4 * Math.pow(2, textureType & 0x3);
-                        let bytes;
+                        let bytes = bitSize / 8;
 
-                        switch (bitSize) {
-                            case 4:
-                                bytes = 0.5;
-                                break;
-
-                            case 8:
-                                bytes = 1;
-                                break;
-
-                            case 16:
-                                bytes = 2;
-                                break;
-
-                            case 32:
-                                bytes = 4
-                                break;
-
-                            default:
-                                throw new Error("Unknown bit size: " + bitSize.toString());
-                        }
-
-                        console.log("bit size: 0x" + bitSize.toString(16));
+                        // console.log("bit size: 0x" + bitSize.toString(16));
 
                         let texOffset = loWord & 0x00FFFFFF;
 
@@ -233,6 +212,8 @@ export function optimize(zobj: Buffer, DLoffsets: Set<number>, rebase: number = 
         });
     });
 
+    // Create the new zobj
+    // start by writing all of the textures, vertex data, and matrices
     let optimizedZobj = new SmartBuffer();
 
     let oldTex2New = new Map<number, number>();
@@ -272,6 +253,8 @@ export function optimize(zobj: Buffer, DLoffsets: Set<number>, rebase: number = 
         optimizedZobj.writeBuffer(mtx);
     });
 
+    // repoint the display lists
+    // sort to make sure that the display lists called by DE are already in the zobj
     let oldDL2New = new Map<number, number>();
 
     displayLists.sort((a, b) => {
@@ -304,7 +287,7 @@ export function optimize(zobj: Buffer, DLoffsets: Set<number>, rebase: number = 
                 // console.log("Opcode: 0x" + opcode.toString(16));
                 // console.log("Low Word: 0x" + loWord.toString(16));
 
-                switch (opcode) {
+                switch (opcode) {   // do repoint
                     case 0x01:
                         let vertEntry = oldVer2New.get(loWord & 0x00FFFFFF);
 
@@ -354,13 +337,14 @@ export function optimize(zobj: Buffer, DLoffsets: Set<number>, rebase: number = 
 
         optimizedZobj.writeBuffer(dl);
 
+        // remove this display list as a dependency so that we can sort again
         displayLists.forEach((dat) => {
             // shut up typescript. I verified that this isn't undefined earlier
             dat.dependencies.delete((currentData as IDisplayListInfo).offset)
         });
 
         // re-sort
-        displayLists.sort((a, b) => {
+        displayLists.sort((a, b) => {   // need to re-sort in case last element no longer has 0 dependencies while others do
             return (a.dependencies.size - b.dependencies.size) * -1;    // sort in descending order
         });
     }
@@ -371,6 +355,6 @@ export function optimize(zobj: Buffer, DLoffsets: Set<number>, rebase: number = 
 
     return {
         zobj: optimizedZobj.toBuffer(),
-        newOffsets: oldDL2New
+        oldOffs2NewOffs: oldDL2New
     }
 }
