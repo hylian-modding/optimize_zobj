@@ -77,8 +77,8 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                         let mtxEntry = matrices.get(mtxStart);
 
                         if (mtxEntry === undefined) {
-                            
-                            if (mtxStart + 0x40 > zobj.length) {    // matrices are always 0x40 bytes long
+
+                            if (mtxStart + 0x40 > zobj.byteLength) {    // matrices are always 0x40 bytes long
                                 throw new Error("Invalid matrix offset at 0x" + i.toString());
                             }
 
