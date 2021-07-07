@@ -6,7 +6,9 @@ interface IDisplayListInfo {
     offset: number
 }
 
-export function optimize(zobj: Buffer, DLoffsets: Set<number>, rebase: number = 0, segment = 0x06) {
+export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: number = 0, segment = 0x06) {
+
+    DLoffsets = new Set(displayListOffsets);
 
     let textures = new Map<number, Buffer>();
     let vertices = new Map<number, Buffer>();
