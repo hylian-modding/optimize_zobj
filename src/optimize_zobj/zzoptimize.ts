@@ -34,7 +34,6 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
             let seg = zobj[i + 4];
             let loWord = zobj.readUInt32BE(i + 4);
 
-
             switch (opcode) {
 
                 // end of display list, self-explanatory
@@ -64,15 +63,9 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                         // don't write same data twice
                         let vtxEntry = vertices.get(vtxStart);
 
-                        if (vtxEntry !== undefined && vtxLen < vtxEntry.length) {
-                            break;
+                        if (vtxEntry === undefined || vtxEntry.byteLength < vtxLen) {
+                            vertices.set(vtxStart, zobj.slice(vtxStart + vtxLen));
                         }
-
-                        let vtxDat = Buffer.alloc(vtxLen);
-
-                        zobj.copy(vtxDat, 0, vtxStart, vtxStart + vtxLen);
-
-                        vertices.set(vtxStart, vtxDat);
                     }
                     break;
 
@@ -84,15 +77,12 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                         let mtxEntry = matrices.get(mtxStart);
 
                         if (mtxEntry === undefined) {
+                            
                             if (mtxStart + 0x40 > zobj.length) {    // matrices are always 0x40 bytes long
                                 throw new Error("Invalid matrix offset at 0x" + i.toString());
                             }
 
-                            let mtxBuf = Buffer.alloc(0x40);
-
-                            zobj.copy(mtxBuf, 0, mtxStart, mtxStart + 0x40);
-
-                            matrices.set(mtxStart, mtxBuf);
+                            matrices.set(mtxStart, zobj.slice(mtxStart, mtxStart + 0x40));
                         }
                     }
                     break;
@@ -191,11 +181,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                         let texDat = textures.get(texOffset);
 
                         if (!texDat || texDat.byteLength < dataLen) {
-                            let texBuf = Buffer.alloc(dataLen);
-
-                            zobj.copy(texBuf, 0, texOffset, texOffset + dataLen);
-
-                            textures.set(texOffset, texBuf);
+                            textures.set(texOffset, zobj.slice(texOffset, texOffset + dataLen));
                         }
                     }
                     break;
