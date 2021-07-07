@@ -16,14 +16,10 @@ class oot_plugin_template implements IPlugin {
     }
     init(): void {
         /*
-        let s = new Set<number>();
-        
-        s.add(0x52A8);
-
-        let op = optimize(readFileSync(resolve(__dirname, "object_link_child.zobj")), s);
+        let op = optimize(readFileSync(resolve(__dirname, "FD3DS.zobj")), [0x50D0, 0x5120]);
         
         writeFileSync("./test.zobj", op.zobj);
-        console.log(op.newOffsets);
+        console.log(op.oldOffs2NewOffs);
         */
     }
     postinit(): void {

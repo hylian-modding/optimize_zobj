@@ -90,6 +90,8 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                 case 0xFD:  // handle textures
                     // Don't ask me how this works
 
+                    // console.log("Detected FD at 0x" + i.toString(16));
+
                     if (seg === segment) {
 
                         let textureType = (zobj[i + 1] >> 3) & 0x1F;
@@ -99,12 +101,13 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                         let bitSize = 4 * Math.pow(2, textureType & 0x3);
                         let texelByteSize = bitSize / 8;
 
-                        // console.log("bit size: 0x" + bitSize.toString(16));
+                        // console.log("bit size: " + bitSize.toString());
 
                         let texOffset = loWord & 0x00FFFFFF;
 
                         // Palette macro always includes E8 afterward?
                         let isPalette = zobj[i + 8] === 0xE8;
+
                         // console.log(isPalette);
 
                         let stopSearch = false;
@@ -137,7 +140,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                                     if (isPalette) {
                                         // console.log("Calculating palette size?")
                                         size = ((loWordJ & 0x00FFF000) >> 14) + 1;
-                                        // console.log("Size: 0x" + size.toString(16));
+                                        // console.log("Number of Colors: 0x" + size.toString(16));
                                     }
                                     else throw new Error("Mismatched palette and FD command at 0x" + i.toString(16));
                                     stopSearch = true;
@@ -150,7 +153,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                                 case 0xF3:
                                     if (!isPalette) {
                                         size = ((loWordJ & 0x00FFF000) >> 12) + 1;
-                                        // console.log("Non-paletted texture size: 0x" + size.toString(16));
+                                        // console.log("Number of Texels to Load: 0x" + size.toString(16));
                                     }
                                     else throw new Error("Mismatched non-palette and FD command at 0x" + i.toString(16));
                                     stopSearch = true;
@@ -161,7 +164,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                             }
                         }
 
-                        // console.log("size: 0x" + size.toString(16));
+                        //console.log("size: 0x" + size.toString(16));
 
                         if (size === -1) {
                             throw new Error("Could not find texture size for FD command at 0x" + i.toString(16));
