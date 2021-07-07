@@ -8,7 +8,7 @@ interface IDisplayListInfo {
 
 export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: number = 0, segment = 0x06) {
 
-    DLoffsets = new Set(displayListOffsets);
+    let DLoffsets = new Set(displayListOffsets);
 
     let textures = new Map<number, Buffer>();
     let vertices = new Map<number, Buffer>();
@@ -107,7 +107,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                         // console.log("Texture Type: 0x" + textureType.toString(16));
 
                         let bitSize = 4 * Math.pow(2, textureType & 0x3);
-                        let bytes = bitSize / 8;
+                        let texelByteSize = bitSize / 8;
 
                         // console.log("bit size: 0x" + bitSize.toString(16));
 
@@ -178,7 +178,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                             throw new Error("Could not find texture size for FD command at 0x" + i.toString(16));
                         }
 
-                        let dataLen = bytes * size;
+                        let dataLen = texelByteSize * size;
 
                         // console.log("dataLen: 0x" + dataLen.toString(16));
 
