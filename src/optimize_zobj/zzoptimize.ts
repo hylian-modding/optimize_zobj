@@ -134,7 +134,6 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                                     break;
 
                                 case 0xF0:
-
                                     if (isPalette) {
                                         // console.log("Calculating palette size?")
                                         size = ((loWordJ & 0x00FFF000) >> 14) + 1;
