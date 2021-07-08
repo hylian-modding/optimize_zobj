@@ -98,8 +98,8 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
 
                         // console.log("Texture Type: 0x" + textureType.toString(16));
 
-                        let bitSize = 4 * Math.pow(2, textureType & 0x3);
-                        let texelByteSize = bitSize / 8;
+                        let numTexelBits = 4 * Math.pow(2, textureType & 0x3);
+                        let bytesPerTexel = numTexelBits / 8;
 
                         // console.log("bit size: " + bitSize.toString());
 
@@ -112,9 +112,9 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
 
                         let stopSearch = false;
 
-                        let size = -1;
+                        let numTexels = -1;
 
-                        for (let j = i + 8; j < zobj.byteLength && !stopSearch && size === -1; j += 8) {
+                        for (let j = i + 8; j < zobj.byteLength && !stopSearch && numTexels === -1; j += 8) {
 
                             // console.log("Current opcode: 0x" + zobj[j].toString(16));
 
@@ -139,20 +139,20 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                                 case 0xF0:
                                     if (isPalette) {
                                         // console.log("Calculating palette size?")
-                                        size = ((loWordJ & 0x00FFF000) >> 14) + 1;
+                                        numTexels = ((loWordJ & 0x00FFF000) >> 14) + 1;
                                         // console.log("Number of Colors: 0x" + size.toString(16));
                                     }
                                     else throw new Error("Mismatched palette and FD command at 0x" + i.toString(16));
                                     stopSearch = true;
 
-                                    if (size > 256) {
+                                    if (numTexels > 256) {
                                         throw new Error("Invalid number of colors in TLUT");
                                     }
                                     break;
 
                                 case 0xF3:
                                     if (!isPalette) {
-                                        size = ((loWordJ & 0x00FFF000) >> 12) + 1;
+                                        numTexels = ((loWordJ & 0x00FFF000) >> 12) + 1;
                                         // console.log("Number of Texels to Load: 0x" + size.toString(16));
                                     }
                                     else throw new Error("Mismatched non-palette and FD command at 0x" + i.toString(16));
@@ -166,11 +166,11 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
 
                         //console.log("size: 0x" + size.toString(16));
 
-                        if (size === -1) {
+                        if (numTexels === -1) {
                             throw new Error("Could not find texture size for FD command at 0x" + i.toString(16));
                         }
 
-                        let dataLen = texelByteSize * size;
+                        let dataLen = bytesPerTexel * numTexels;
 
                         // console.log("dataLen: 0x" + dataLen.toString(16));
 
