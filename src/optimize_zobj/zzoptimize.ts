@@ -64,7 +64,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                         let vtxEntry = vertices.get(vtxStart);
 
                         if (vtxEntry === undefined || vtxEntry.byteLength < vtxLen) {
-                            vertices.set(vtxStart, zobj.slice(vtxStart + vtxLen));
+                            vertices.set(vtxStart, zobj.slice(vtxStart, vtxStart + vtxLen));
                         }
                     }
                     break;
