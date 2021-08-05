@@ -15,12 +15,12 @@ class oot_plugin_template implements IPlugin {
     preinit(): void {
     }
     init(): void {
-        /*
-        let op = optimize(readFileSync(resolve(__dirname, "FD3DS.zobj")), [0x50D0, 0x5120]);
         
-        writeFileSync("./test.zobj", op.zobj);
+        let op = optimize(readFileSync(resolve(__dirname, "dupe_hs.zobj")), [0x1B00, 0x38A8], 0, 6, true);
+        
+        writeFileSync(resolve("H:\\N64_Modding\\ModLoader64_dev\\my_mods\\optimize_zobj\\test.zobj"), op.zobj);
         console.log(op.oldOffs2NewOffs);
-        */
+        
     }
     postinit(): void {
     }

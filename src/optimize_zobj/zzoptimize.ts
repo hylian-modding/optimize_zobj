@@ -6,7 +6,100 @@ interface IDisplayListInfo {
     offset: number
 }
 
-export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: number = 0, segment = 0x06) {
+interface IOffsetExtended {
+    primaryOffset: number,
+    secondaryOffset: number
+}
+
+function findSubBuffer(bufferToSearch: Buffer, subBuffer: Buffer): number {
+
+    let result = -1;
+
+    if (bufferToSearch.byteLength < subBuffer.byteLength)
+        return result;
+
+    let range = bufferToSearch.byteLength - subBuffer.byteLength + 1;
+
+    for (let i = 0; i < range; i += 8) {
+        if (bufferToSearch.slice(i, i + subBuffer.byteLength).compare(subBuffer) === 0) {
+            result = i;
+            // console.log("FUCK FUCK FUCK FUCK FUCK FUCK FUCK FUCK")
+            break;
+        }
+    }
+
+    return result;
+}
+
+// hacky as hell, but it works
+function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffsetExtended[]>) {
+    for (let i = 0; i < a.length; i++) {
+
+        for (let j = i + 1; j < a.length; j++) {
+
+            if (a[j].data.byteLength === 0) {
+                // console.log("Skip j");
+                continue;
+            }
+
+            if (a[i].data.byteLength === 0) {
+                // console.log("Skip i");
+                continue;
+            }
+
+            let b = a[i].data.byteLength > a[j].data.byteLength;
+            let bigger = b ? a[i] : a[j];
+            let smaller = b ? a[j] : a[i];
+
+            let subOff = findSubBuffer(bigger.data, smaller.data);
+
+            // if there was a sub array, don't forget to track existing sub arrays within it
+            if (subOff !== -1) {
+
+                // console.log(bigger);
+                // console.log(smaller);
+
+                smaller.data = Buffer.alloc(0);
+
+                let sEntry = m.get(smaller.offset);
+
+                let sa: IOffsetExtended[] = sEntry ? sEntry : [];
+
+                let bEntry = m.get(bigger.offset);
+
+                let ba = bEntry ? bEntry : [];
+
+                ba.push({ primaryOffset: smaller.offset, secondaryOffset: subOff });
+
+                let tmpa = ba.concat(sa);
+
+                let finala: IOffsetExtended[] = [];
+
+                for (let j = 0; j < tmpa.length; j++) {
+                    let isUnique = true;
+
+                    for (let k = j + 1; k < tmpa.length && isUnique; k++) {
+                        if (tmpa[j].primaryOffset === tmpa[k].primaryOffset && tmpa[j].secondaryOffset === tmpa[k].secondaryOffset) {
+                            isUnique = false;
+                        }
+                    }
+
+                    if (isUnique) {
+                        finala.push(tmpa[j]);
+                    }
+                }
+
+                m.delete(smaller.offset);
+                m.set(bigger.offset, finala);
+
+            }
+
+        }
+
+    }
+}
+
+export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: number = 0, segment = 0x06, removeDupData = false) {
 
     let DLoffsets = new Set(displayListOffsets);
 
@@ -101,7 +194,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                         let numTexelBits = 4 * Math.pow(2, textureType & 0x3);
                         let bytesPerTexel = numTexelBits / 8;
 
-                        // console.log("bit size: " + bitSize.toString());
+                        // console.log("texel size: " + bytesPerTexel.toString());
 
                         let texOffset = loWord & 0x00FFFFFF;
 
@@ -114,6 +207,8 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
 
                         let numTexels = -1;
 
+                        let returnStack: number[] = [];
+
                         for (let j = i + 8; j < zobj.byteLength && !stopSearch && numTexels === -1; j += 8) {
 
                             // console.log("Current opcode: 0x" + zobj[j].toString(16));
@@ -123,24 +218,39 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                             // console.log("Low word J: 0x" + loWordJ.toString(16));
 
                             switch (zobj[j]) {
+
                                 case 0xDF:
+                                    if (returnStack.length === 0) {
+                                        numTexels = 0;
+                                        stopSearch = true;
+                                    }
+                                    else {
+                                        j = returnStack.pop()!;
+                                    }
+                                    break;
+
                                 case 0xFD:
-                                    console.log("DF or FD reached too early when looking for texture")
+                                    numTexels = 0;
                                     stopSearch = true;
                                     break;
 
                                 case 0xDE:
-                                    if (zobj[j + 1] === 0x01) {
-                                        console.log("DE01 reached too early when looking for texture")
-                                        stopSearch = true;
+
+                                    if (zobj[j + 4] === segment) {
+                                        if (zobj[j + 1] === 0x0) {
+                                            returnStack.push(j);
+                                        }
+
+                                        j = loWordJ & 0x00FFFFFF;
                                     }
+
                                     break;
 
                                 case 0xF0:
                                     if (isPalette) {
                                         // console.log("Calculating palette size?")
                                         numTexels = ((loWordJ & 0x00FFF000) >> 14) + 1;
-                                        // console.log("Number of Colors: 0x" + size.toString(16));
+                                        // console.log("Number of Colors: 0x" + numTexels.toString(16));
                                     }
                                     else throw new Error("Mismatched palette and FD command at 0x" + i.toString(16));
                                     stopSearch = true;
@@ -153,7 +263,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                                 case 0xF3:
                                     if (!isPalette) {
                                         numTexels = ((loWordJ & 0x00FFF000) >> 12) + 1;
-                                        // console.log("Number of Texels to Load: 0x" + size.toString(16));
+                                        // console.log("Number of Texels to Load: 0x" + numTexels.toString(16));
                                     }
                                     else throw new Error("Mismatched non-palette and FD command at 0x" + i.toString(16));
                                     stopSearch = true;
@@ -164,7 +274,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
                             }
                         }
 
-                        //console.log("size: 0x" + size.toString(16));
+                        // console.log("size: 0x" + numTexels.toString(16));
 
                         if (numTexels === -1) {
                             throw new Error("Could not find texture size for FD command at 0x" + i.toString(16));
@@ -174,7 +284,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
 
                         // console.log("dataLen: 0x" + dataLen.toString(16));
 
-                        // console.log("Texture Address: 0x" + texOffset.toString(16) + "- 0x" + (texOffset + dataLen).toString(16));
+                        // console.log("Texture Address: 0x" + texOffset.toString(16) + " - 0x" + (texOffset + dataLen).toString(16));
 
                         if (texOffset + dataLen > zobj.byteLength) {
                             throw new Error("Texture referenced at 0x" + i.toString(16) + " not in range of zobj!");
@@ -182,7 +292,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
 
                         let texDat = textures.get(texOffset);
 
-                        if (!texDat || texDat.byteLength < dataLen) {
+                        if (texDat === undefined || texDat.byteLength < dataLen) {
                             textures.set(texOffset, zobj.slice(texOffset, texOffset + dataLen));
                         }
                     }
@@ -201,6 +311,44 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
             offset: val
         });
     });
+
+    let oldTex2Undupe: Map<number, IOffsetExtended[]>;
+    let oldVert2Undupe: Map<number, IOffsetExtended[]>;
+
+    if (removeDupData) {
+
+        oldTex2Undupe = new Map();
+        oldVert2Undupe = new Map();
+
+        let texPairs: { offset: number, data: Buffer }[] = [];
+        let vertPairs: { offset: number, data: Buffer }[] = [];
+
+        textures.forEach((val, key) => {
+            texPairs.push({ offset: key, data: val });
+        });
+
+        vertices.forEach((val, key) => {
+            vertPairs.push({ offset: key, data: val });
+        });
+
+        removeDupes(texPairs, oldTex2Undupe);
+        removeDupes(vertPairs, oldVert2Undupe);
+
+        // console.log("FUCK2");
+
+        oldTex2Undupe.forEach((extOffs, parentOff) => {
+            extOffs.forEach((extOff) => {
+                textures.delete(extOff.primaryOffset);
+            });
+        });
+
+        oldVert2Undupe.forEach((extOffs, parentOff) => {
+            extOffs.forEach((extOff) => {
+                vertices.delete(extOff.primaryOffset);
+            });
+        });
+
+    }
 
     // Create the new zobj
     // start by writing all of the textures, vertex data, and matrices
@@ -233,6 +381,26 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
 
     });
 
+    if (removeDupData) {
+
+        // console.log(oldTex2Undupe!);
+        // console.log(oldVert2Undupe!);
+
+        oldTex2Undupe!.forEach((extOffs, parentOff) => {
+            extOffs.forEach((extOff) => {
+                oldTex2New.set(extOff.primaryOffset, oldTex2New.get(parentOff)! + extOff.secondaryOffset);
+                // console.log("Duplicate texture detected: 0x" + extOff.primaryOffset.toString(16) + " => 0x" + (oldTex2New.get(parentOff)! + extOff.secondaryOffset).toString(16));
+            });
+        });
+
+        oldVert2Undupe!.forEach((extOffs, parentOff) => {
+            extOffs.forEach((extOff) => {
+                oldVer2New.set(extOff.primaryOffset, oldVer2New.get(parentOff)! + extOff.secondaryOffset);
+                // console.log("Duplicate vtx data detected: 0x" + extOff.primaryOffset.toString(16) + " => 0x" + (oldVer2New.get(parentOff)! + extOff.secondaryOffset).toString(16));
+            });
+        });
+    }
+
     let oldMtx2New = new Map<number, number>();
 
     matrices.forEach((mtx, originalOffset) => {
@@ -242,6 +410,9 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
 
         optimizedZobj.writeBuffer(mtx);
     });
+
+    // byte alignment via 0 padding
+    optimizedZobj.writeBuffer(Buffer.alloc(optimizedZobj.length % 0x10, 0));
 
     // repoint the display lists
     // sort to make sure that the display lists called by DE are already in the zobj
@@ -330,7 +501,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
         // remove this display list as a dependency so that we can sort again
         displayLists.forEach((dat) => {
             // shut up typescript. I verified that this isn't undefined earlier
-            dat.dependencies.delete((currentData as IDisplayListInfo).offset)
+            dat.dependencies.delete(currentData!.offset);
         });
 
         // re-sort
