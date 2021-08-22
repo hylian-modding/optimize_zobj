@@ -51,10 +51,10 @@ function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffs
             let bigger = b ? a[i] : a[j];
             let smaller = b ? a[j] : a[i];
 
-            let subOff = findSubBuffer(bigger.data, smaller.data);
+            let subOff = bigger.data.compare(smaller.data);
 
             // if there was a sub array, don't forget to track existing sub arrays within it
-            if (subOff !== -1) {
+            if (subOff === 0) {
 
                 // console.log(bigger);
                 // console.log(smaller);
@@ -75,17 +75,17 @@ function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffs
 
                 let finala: IOffsetExtended[] = [];
 
-                for (let j = 0; j < tmpa.length; j++) {
+                for (let k = 0; k < tmpa.length; k++) {
                     let isUnique = true;
 
-                    for (let k = j + 1; k < tmpa.length && isUnique; k++) {
-                        if (tmpa[j].primaryOffset === tmpa[k].primaryOffset && tmpa[j].secondaryOffset === tmpa[k].secondaryOffset) {
+                    for (let l = k + 1; l < tmpa.length && isUnique; l++) {
+                        if (tmpa[k].primaryOffset === tmpa[l].primaryOffset && tmpa[k].secondaryOffset === tmpa[l].secondaryOffset) {
                             isUnique = false;
                         }
                     }
 
                     if (isUnique) {
-                        finala.push(tmpa[j]);
+                        finala.push(tmpa[k]);
                     }
                 }
 
@@ -95,7 +95,6 @@ function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffs
             }
 
         }
-
     }
 }
 
