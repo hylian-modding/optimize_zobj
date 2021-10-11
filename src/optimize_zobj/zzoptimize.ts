@@ -11,26 +11,6 @@ interface IOffsetExtended {
     secondaryOffset: number
 }
 
-function findSubBuffer(bufferToSearch: Buffer, subBuffer: Buffer): number {
-
-    let result = -1;
-
-    if (bufferToSearch.byteLength < subBuffer.byteLength)
-        return result;
-
-    let range = bufferToSearch.byteLength - subBuffer.byteLength + 1;
-
-    for (let i = 0; i < range; i += 8) {
-        if (bufferToSearch.slice(i, i + subBuffer.byteLength).compare(subBuffer) === 0) {
-            result = i;
-            // console.log("FUCK FUCK FUCK FUCK FUCK FUCK FUCK FUCK")
-            break;
-        }
-    }
-
-    return result;
-}
-
 // hacky as hell, but it works
 function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffsetExtended[]>) {
     for (let i = 0; i < a.length; i++) {
@@ -51,7 +31,7 @@ function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffs
             let bigger = b ? a[i] : a[j];
             let smaller = b ? a[j] : a[i];
 
-            let subOff = bigger.data.compare(smaller.data);
+            let subOff = bigger.data.indexOf(smaller.data);
 
             // if there was a sub array, don't forget to track existing sub arrays within it
             if (subOff === 0) {
@@ -93,7 +73,6 @@ function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffs
                 m.set(bigger.offset, finala);
 
             }
-
         }
     }
 }
@@ -410,9 +389,6 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
         optimizedZobj.writeBuffer(mtx);
     });
 
-    // byte alignment via 0 padding
-    optimizedZobj.writeBuffer(Buffer.alloc(optimizedZobj.length % 0x10, 0));
-
     // repoint the display lists
     // sort to make sure that the display lists called by DE are already in the zobj
     let oldDL2New = new Map<number, number>();
@@ -422,11 +398,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
     });
 
     while (displayLists.length !== 0) {
-        let currentData = displayLists.pop();
-
-        if (!currentData) {
-            throw new Error("Something went wrong when relocating display lists!");
-        }
+        let currentData = displayLists.pop()!;
 
         if (currentData.dependencies.size !== 0) {
             throw new Error("Non-relocated display list referenced.");
@@ -503,11 +475,16 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
             dat.dependencies.delete(currentData!.offset);
         });
 
-        // re-sort
-        displayLists.sort((a, b) => {   // need to re-sort in case last element no longer has 0 dependencies while others do
-            return (a.dependencies.size - b.dependencies.size) * -1;    // sort in descending order
-        });
+        // if last element no longer has 0 dependencies, must resort
+        if (displayLists[displayLists.length].dependencies.size !== 0) {
+            displayLists.sort((a, b) => {
+                return (a.dependencies.size - b.dependencies.size) * -1;    // sort in descending order
+            });
+        }
     }
+
+    // byte alignment via 0 padding
+    optimizedZobj.writeBuffer(Buffer.alloc(optimizedZobj.length % 0x10, 0));
 
     oldDL2New.forEach((newOff, oldOff) => {
         oldDL2New.set(oldOff, newOff + rebase);
