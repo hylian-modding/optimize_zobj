@@ -11,6 +11,11 @@ interface IOffsetExtended {
     secondaryOffset: number
 }
 
+export interface IOptimized{
+    zobj: Buffer;
+    oldOffs2NewOffs: Map<number, number>;
+}
+
 // hacky as hell, but it works
 function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffsetExtended[]>) {
     for (let i = 0; i < a.length; i++) {
@@ -77,7 +82,7 @@ function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffs
     }
 }
 
-export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: number = 0, segment = 0x06, removeDupData = false) {
+export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: number = 0, segment = 0x06, removeDupData = false): IOptimized {
 
     let DLoffsets = new Set(displayListOffsets);
 
