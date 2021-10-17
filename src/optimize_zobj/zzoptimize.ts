@@ -36,7 +36,7 @@ function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffs
             let bigger = b ? a[i] : a[j];
             let smaller = b ? a[j] : a[i];
 
-            let subOff = bigger.data.indexOf(smaller.data);
+            let subOff = bigger.data.compare(smaller.data);
 
             // if there was a sub array, don't forget to track existing sub arrays within it
             if (subOff === 0) {
