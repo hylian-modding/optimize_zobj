@@ -496,7 +496,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
         });
 
         // if last element no longer has 0 dependencies, must resort
-        if (displayLists[displayLists.length].dependencies.size !== 0) {
+        if (displayLists[displayLists.length - 1].dependencies.size !== 0) {
             displayLists.sort((a, b) => {
                 return (a.dependencies.size - b.dependencies.size) * -1;    // sort in descending order
             });
