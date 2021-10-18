@@ -16,6 +16,15 @@ export interface IOptimized{
     oldOffs2NewOffs: Map<number, number>;
 }
 
+export interface IOptimizeExtended extends IOptimized{
+    textureOffsets: Map<number, number>;
+    textureLengths: Map<number, number>;
+    vertOffsets: Map<number, number>;
+    vertLengths: Map<number, number>;
+    mtxOffsets: Map<number, number>;
+    mtxLength: Map<number, number>;
+}
+
 // hacky as hell, but it works
 function removeDupes(a: { offset: number, data: Buffer }[], m: Map<number, IOffsetExtended[]>) {
     for (let i = 0; i < a.length; i++) {
@@ -338,12 +347,14 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
     let optimizedZobj = new SmartBuffer();
 
     let oldTex2New = new Map<number, number>();
+    let texLengths = new Map<number, number>();
 
     textures.forEach((tex, originalOffset) => {
 
         let newOffset = optimizedZobj.length;
 
         oldTex2New.set(originalOffset, newOffset);
+        texLengths.set(originalOffset, tex.byteLength);
 
         // console.log("Tex: 0x" + originalOffset.toString(16) + " -> 0x" + newOffset.toString(16));
 
@@ -352,11 +363,13 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
     });
 
     let oldVer2New = new Map<number, number>();
+    let vertLength = new Map<number, number>();
     vertices.forEach((tex, originalOffset) => {
 
         let newOffset = optimizedZobj.length;
 
         oldVer2New.set(originalOffset, newOffset);
+        vertLength.set(originalOffset, tex.byteLength);
 
         optimizedZobj.writeBuffer(tex);
 
@@ -385,11 +398,13 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
     }
 
     let oldMtx2New = new Map<number, number>();
+    let mtxLength= new Map<number, number>();
 
     matrices.forEach((mtx, originalOffset) => {
         let newOffset = optimizedZobj.length;
 
         oldMtx2New.set(originalOffset, newOffset);
+        mtxLength.set(originalOffset, mtx.byteLength);
 
         optimizedZobj.writeBuffer(mtx);
     });
@@ -497,6 +512,12 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
 
     return {
         zobj: optimizedZobj.toBuffer(),
-        oldOffs2NewOffs: oldDL2New
-    }
+        oldOffs2NewOffs: oldDL2New,
+        textureOffsets: oldTex2New,
+        textureLengths: texLengths,
+        vertOffsets: oldVer2New,
+        vertLengths: vertLength,
+        mtxOffsets: oldMtx2New,
+        mtxLength
+    } as IOptimized;
 }
