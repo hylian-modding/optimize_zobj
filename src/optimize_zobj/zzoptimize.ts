@@ -103,6 +103,10 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
     // first pass: gather all relevant offsets for display lists, textures, palettes, and vertex data
     DLoffsets.forEach((val) => {
 
+        if (val < 0 || val >= zobj.byteLength) {
+            throw new Error("Received invalid DL offset 0x" + val.toString(16) + " (OUT OF RANGE OF ZOBJ)");
+        }
+
         if (val % 8 !== 0) {
             throw new Error("Display List Offset 0x" + val.toString(16) + " is not byte-aligned!");
         }
@@ -496,7 +500,7 @@ export function optimize(zobj: Buffer, displayListOffsets: number[], rebase: num
         });
 
         // if last element no longer has 0 dependencies, must resort
-        if (displayLists[displayLists.length - 1].dependencies.size !== 0) {
+        if (displayLists.length !== 0 && displayLists[displayLists.length - 1].dependencies.size !== 0) {
             displayLists.sort((a, b) => {
                 return (a.dependencies.size - b.dependencies.size) * -1;    // sort in descending order
             });
